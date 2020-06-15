@@ -91,3 +91,8 @@ post '/login' do
     redirect "/login?f=0"
   end
 end
+
+get '/rooms/create' do
+  @user = Users.find_by(name: session[:user])
+  erb :rooms_create
+end
