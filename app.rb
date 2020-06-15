@@ -11,17 +11,32 @@ enable :sessions
 
 ActiveRecord::Base.establish_connection(
   adapter: 'sqlite3',
-  database: './db/users.db'
+  database: './db/db.db'
 )
 
-class Users < ActiveRecord::Base
+class User < ActiveRecord::Base
   validates :name, presence: true, length: { maximum: 20 }
   has_secure_password
 end
 
 
+class Room < ActiveRecord::Base
+end
+
+class Room_User < ActiveRecord::Base
+end
+
+class Write < ActiveRecord::Base
+end
+
+
 get '/' do
-  'fine.'
+  login_user = Users.find_by(name: session[:user])
+  if login_user then
+    redirect "/home"
+  else
+    erb :top
+  end
 end
 
 get '/hello/:name' do |name|
@@ -33,12 +48,12 @@ get '/users/all' do
   json @users
 end
 
-get '/whoami' do
+get '/home' do
   login_user = Users.find_by(name: session[:user])
   if login_user then
     "You are #{login_user.name}.<br>"
   else
-    "No such user."
+    redirect "/"
   end
 end
 
@@ -51,9 +66,9 @@ post '/signup' do
   @user.password = params[:password]
   
   if @user.save then
-    redirect "/whoami"
+    redirect "/home"
   else
-    "Failed to create user."
+    redirect "/"
   end
 end
 
@@ -71,7 +86,7 @@ post '/login' do
   
   if login_user then
     session[:user] = login_user.name
-    redirect "/whoami"
+    redirect "/home"
   else
     redirect "/login?f=0"
   end
