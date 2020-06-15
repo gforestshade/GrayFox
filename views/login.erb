@@ -1,0 +1,6 @@
+<form action="/login" method="post">
+  <% if @again %><p style="color:red">ログインできませんでした</p><% end %>
+  <label>ユーザー名:</label><input type="text" name="name"><br>
+  <label>パスワード:</label><input type="password" name="password"><br>
+  <input type="submit" value="ログイン">
+</form>
