@@ -1,0 +1,24 @@
+<p>Hi, <%= @user.name %>!</p>
+<form action="/rooms/create" method="post">
+  <% if @again %><p style="color:red">なんかできませんでした</p><% end %>
+  <label for="form_name">
+    名前:
+    <input type="text" id="form_name" name="name" value="<%= @room.name %>">
+    <br>
+  </label>
+  <label for="form_number">
+    人数:
+    <input type="number" id="form_number" name="number" value="<%= @room.number %>" min="2" max="10">
+    <br>
+  </label>
+  <label>制限時間:</label>
+    <input type="number" name="minutes" value="<%= @room.seconds / 60 %>" min="0"> 分
+    <input type="number" name="seconds" value="<%= @room.seconds % 60 %>" min="0" max="59"> 秒
+    </br>
+  <label for="show_prev_writer">
+    <input type="checkbox" id="show_prev_writer" name="show_prev_writer" <% if @room.show_prev_writer %>checked<% end %>>
+    執筆順を表示する
+    <br>
+    </label>
+  <input type="submit" value="つくる">
+</form>

@@ -1,0 +1,13 @@
+<p>You are <%= @login_user.name %>.</p>
+<p><a href=/rooms/create>Create Room</a></p>
+
+<div style="margin: 5em"></div>
+
+<% @rooms.each do |room| %>
+<div class="room-card">
+  <p><a href="/rooms/0/<%= room.hash_text %>">
+    <%= room.name %>
+  </a></p>
+  <p><%= room.occupied %> / <%= room.number %></p>
+</div>
+<% end %>
