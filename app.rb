@@ -21,9 +21,30 @@ end
 
 
 class Room < ActiveRecord::Base
+  validates :name,
+    presence: true
+
+  validates :number,
+    numericality: {
+      only_integer: true,
+      greater_than_or_equal_to: 2,
+      less_than_or_equal_to: 10
+    }
+
+  validates :seconds,
+    numericality: {
+      only_integer: true,
+      greater_than_or_equal_to: 0
+    }
+  
+  validates :show_prev_writer,
+    inclusion: { in: [true, false] }
+
+  has_many :room_users, dependent: :destroy
 end
 
 class Room_User < ActiveRecord::Base
+  belongs_to :room
 end
 
 class Write < ActiveRecord::Base
@@ -31,7 +52,7 @@ end
 
 
 get '/' do
-  login_user = Users.find_by(name: session[:user])
+  login_user = User.find_by(name: session[:user])
   if login_user then
     redirect "/home"
   else
@@ -44,14 +65,14 @@ get '/hello/:name' do |name|
 end
 
 get '/users/all' do
-  @users = Users.all
+  @users = User.all
   json @users
 end
 
 get '/home' do
-  login_user = Users.find_by(name: session[:user])
+  login_user = User.find_by(name: session[:user])
   if login_user then
-    "You are #{login_user.name}.<br>"
+    "You are #{login_user.name}.<br><a href=\"/rooms/create\">Create Room</a>"
   else
     redirect "/"
   end
@@ -62,7 +83,7 @@ get '/signup' do
 end
 
 post '/signup' do
-  @user = Users.new(name: params[:name])
+  @user = User.new(name: params[:name])
   @user.password = params[:password]
   
   if @user.save then
@@ -79,7 +100,7 @@ get '/login' do
 end
 
 post '/login' do
-  login_user = Users.find_by(name: params[:name])
+  login_user = User.find_by(name: params[:name])
   if login_user then
     login_user = login_user.authenticate(params[:password])
   end
@@ -92,7 +113,41 @@ post '/login' do
   end
 end
 
+
+
 get '/rooms/create' do
-  @user = Users.find_by(name: session[:user])
+  @user = User.find_by(name: session[:user])
+  if !@user then
+    return "please login."
+  end
+  
+  @room = Room.new(
+    name: '',
+    number: 4,
+    seconds: 15*60,
+    show_prev_writer: false)
+
   erb :rooms_create
 end
+
+post '/rooms/create' do
+  @user = User.find_by(name: session[:user])
+  if !@user then
+    return "please login."
+  end
+
+  seconds = params[:minutes].to_i * 60 + params[:seconds].to_i
+  @room = Room.new(
+    name: params[:name],
+    number: params[:number],
+    seconds: seconds,
+    show_prev_writer: params[:show_prev_writer].present?
+  )
+
+  if @room.save then
+    json Room.all
+  else
+    erb :rooms_create
+  end
+end
+

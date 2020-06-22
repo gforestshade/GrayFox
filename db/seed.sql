@@ -11,6 +11,8 @@ drop table if exists rooms;
 
 create table rooms(
     hash_text text,
+    name text,
+    number integer,
     show_prev_writer boolean,
     seconds integer
 );
@@ -21,7 +23,7 @@ drop table if exists room_users;
 create table room_users(
     room_id integer,
     user_id integer,
-    index_in_room integerx
+    index_in_room integer
 );
 
 
