@@ -40,7 +40,7 @@ class Room < ActiveRecord::Base
   validates :show_prev_writer,
     inclusion: { in: [true, false] }
 
-  has_many :room_users, dependent: :destroy
+  has_many :room_users, class_name: :Room_User, dependent: :destroy
 end
 
 class Room_User < ActiveRecord::Base
@@ -61,7 +61,8 @@ get '/' do
 end
 
 get '/hello/:name' do |name|
-  "Hello, #{name}!"
+  user = User.find_by(name: name)
+  "Hello, #{user.name}! Your id is #{user.id}"
 end
 
 get '/users/all' do
@@ -144,10 +145,19 @@ post '/rooms/create' do
     show_prev_writer: params[:show_prev_writer].present?
   )
 
-  if @room.save then
-    json Room.all
-  else
+  if !@room.save then
     erb :rooms_create
   end
+
+  room_user = @room.room_users.create(
+    user_id: @user.id,
+    index_in_room: 0)
+
+  
+  if !room_user then
+    erb :rooms_create
+  end
+
+  json Room.all  
 end
 
