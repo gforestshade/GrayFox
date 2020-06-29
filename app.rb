@@ -5,6 +5,7 @@ require 'sinatra/json'
 require 'sinatra/activerecord'
 require 'sqlite3'
 require 'bcrypt'
+require 'securerandom'
 
 enable :sessions
 
@@ -16,6 +17,7 @@ ActiveRecord::Base.establish_connection(
 
 class User < ActiveRecord::Base
   validates :name, presence: true, length: { maximum: 20 }
+  has_one :room_user
   has_secure_password
 end
 
@@ -41,10 +43,21 @@ class Room < ActiveRecord::Base
     inclusion: { in: [true, false] }
 
   has_many :room_users, dependent: :destroy
+  has_many :writes
+
+  
+  def find_room_user(user)
+    self.room_users.find{|ru| ru.user.id == user.id}
+  end
+
+  def occupied
+    self.room_users.count
+  end
 end
 
 class RoomUser < ActiveRecord::Base
   belongs_to :room
+  belongs_to :user
 end
 
 class Write < ActiveRecord::Base
@@ -66,14 +79,14 @@ get '/hello/:name' do |name|
 end
 
 get '/users/all' do
-  @users = User.all
-  json @users
+  json User.all
 end
 
 get '/home' do
-  login_user = User.find_by(name: session[:user])
-  if login_user then
-    "You are #{login_user.name}.<br><a href=\"/rooms/create\">Create Room</a>"
+  @login_user = User.find_by(name: session[:user])
+  if @login_user then
+    @rooms = Room.all
+    erb :home
   else
     redirect "/"
   end
@@ -88,6 +101,7 @@ post '/signup' do
   @user.password = params[:password]
   
   if @user.save then
+    session[:user] = @user.name
     redirect "/home"
   else
     redirect "/"
@@ -139,6 +153,7 @@ post '/rooms/create' do
 
   seconds = params[:minutes].to_i * 60 + params[:seconds].to_i
   @room = Room.new(
+    hash_text: SecureRandom.hex(8),
     name: params[:name],
     number: params[:number],
     seconds: seconds,
@@ -146,19 +161,101 @@ post '/rooms/create' do
   )
 
   if !@room.save then
-    erb :rooms_create
+    return erb :rooms_create
   end
 
   room_user = @room.room_users.create(
     user_id: @user.id,
-    index_in_room: 0)
-
+    is_host: true)
   
   if !room_user then
-    erb :rooms_create
+    return erb :rooms_create
   end
 
-  obj = {rooms: Room.all, room_users: RoomUser.all}
-  json obj
+  redirect '/home'
+end
+
+get '/rooms/all' do
+  json Room.all
+end
+
+get '/rooms/0/:hash' do |hash|
+  @login_user = User.find_by(name: session[:user])
+  if !@login_user then
+    return "Please login."
+  end
+  
+  @room = Room.find_by(hash_text: hash)
+  if !@room then
+    return "No such room."
+  end
+
+  my_ru = @room.find_room_user(@login_user)
+  if my_ru then
+    erb :room_lobby
+  else
+    "You are not in room."
+  end
+end
+
+get '/rooms/0/:hash/join' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return "Please login."
+  end
+  
+  room = Room.find_by(hash_text: hash)
+  if !room then
+    return "No such room."
+  end
+
+  if room.find_room_user(login_user) then
+    return redirect "/rooms/0/#{hash}"
+  end
+  
+  occupied = room.occipied
+  if occupied >= room.number then
+    return "This room is full."
+  end
+  
+  room_user = room.room_users.create(
+    user_id: login_user.id,
+    is_host: false)
+  
+  if !room_user then
+    return redirect 'failed to join room.'
+  end
+
+  redirect '/home'
+end
+
+get '/rooms/b/:hash' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return "Please login."
+  end
+  
+  room = Room.find_by(hash_text: hash)
+  if !room then
+    return "No such room."
+  end
+
+  ru = room.find_room_user(login_user) 
+  if !ru || !ru.is_host then
+    return redirect "/rooms/0/#{hash}"
+  end
+
+  room.room_users.each_with_index do |ru, i|
+    ru.index_room = i
+    if !ru.save then
+      return redirect "/rooms/0/#{hash}"
+    end
+
+    if !room.writes.create(index_room: i, content: '') then
+      return redirect "/rooms/0/#{hash}"
+    end
+  end
+
+  json Write.all
 end
 

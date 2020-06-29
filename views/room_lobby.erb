@@ -1,0 +1,22 @@
+<style>
+.name-me {
+  color: red;
+}
+</style>
+
+<h1><%= @room.name %></h1>
+
+<h3>users:</h3>
+<ul>
+<% @room.room_users.each do |ru| %>
+<li>
+  <% if ru.is_host then %>(Host)<% end %>
+  <% name_class = (ru.user_id == @login_user.id) ? 'name-me' : 'name-other' %>
+  <span class="<%= name_class %>"><%= ru.user.name %></span>
+</li>
+<% end %>
+</ul>
+
+<% if @login_user.room_user.is_host then %>
+<p><a href="/rooms/b/<%= @room.hash_text %>">Go!</a></p>
+<% end %>
