@@ -26,7 +26,8 @@ create table room_users(
     id integer primary key,
     room_id integer,
     user_id integer,
-    index_in_room integer
+    index_room integer,
+    is_host boolean
 );
 
 
@@ -35,6 +36,6 @@ drop table if exists writes;
 create table writes(
     id integer primary key,
     room_id integer,
-    index_in_room integer,
+    index_room integer,
     content text
 );
