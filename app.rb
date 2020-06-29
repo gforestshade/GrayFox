@@ -40,10 +40,10 @@ class Room < ActiveRecord::Base
   validates :show_prev_writer,
     inclusion: { in: [true, false] }
 
-  has_many :room_users, class_name: :Room_User, dependent: :destroy
+  has_many :room_users, dependent: :destroy
 end
 
-class Room_User < ActiveRecord::Base
+class RoomUser < ActiveRecord::Base
   belongs_to :room
 end
 
@@ -158,6 +158,7 @@ post '/rooms/create' do
     erb :rooms_create
   end
 
-  json Room.all  
+  obj = {rooms: Room.all, room_users: RoomUser.all}
+  json obj
 end
 

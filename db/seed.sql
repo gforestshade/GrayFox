@@ -22,7 +22,7 @@ create table rooms(
 
 drop table if exists room_users;
 
-create table roomusers(
+create table room_users(
     id integer primary key,
     room_id integer,
     user_id integer,
