@@ -2,67 +2,14 @@
 require 'sinatra'
 require 'sinatra/reloader' if development?
 require 'sinatra/json'
-require 'sinatra/activerecord'
-require 'sqlite3'
 require 'bcrypt'
 require 'securerandom'
 
+require './models'
+require './firebase-auth'
+
+
 enable :sessions
-
-
-ActiveRecord::Base.establish_connection(
-  adapter: 'sqlite3',
-  database: './db/db.db'
-)
-
-class User < ActiveRecord::Base
-  validates :name, presence: true, length: { maximum: 20 }
-  has_one :room_user
-  has_secure_password
-end
-
-
-class Room < ActiveRecord::Base
-  validates :name,
-    presence: true
-
-  validates :number,
-    numericality: {
-      only_integer: true,
-      greater_than_or_equal_to: 2,
-      less_than_or_equal_to: 10
-    }
-
-  validates :seconds,
-    numericality: {
-      only_integer: true,
-      greater_than_or_equal_to: 0
-    }
-  
-  validates :show_prev_writer,
-    inclusion: { in: [true, false] }
-
-  has_many :room_users, dependent: :destroy
-  has_many :writes
-
-  
-  def find_room_user(user)
-    self.room_users.find{|ru| ru.user.id == user.id}
-  end
-
-  def occupied
-    self.room_users.count
-  end
-end
-
-class RoomUser < ActiveRecord::Base
-  belongs_to :room
-  belongs_to :user
-end
-
-class Write < ActiveRecord::Base
-end
-
 
 get '/' do
   login_user = User.find_by(name: session[:user])
@@ -249,17 +196,17 @@ end
 get '/rooms/0/:hash/info' do |hash|
   login_user = User.find_by(name: session[:user])
   if !login_user then
-    return "Please login."
+    return 403, "Please login."
   end
   
   room = Room.find_by(hash_text: hash)
   if !room then
-    return "No such room."
+    return 404, "No such room."
   end
   
   my_ru = room.find_room_user(login_user)
   if !my_ru then
-    "You are not in room."
+    return 403, "You are not in room."
   end
 
   rows = room.room_users.joins(:user).select('users.name, room_users.is_host')
