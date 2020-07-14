@@ -2,67 +2,14 @@
 require 'sinatra'
 require 'sinatra/reloader' if development?
 require 'sinatra/json'
-require 'sinatra/activerecord'
-require 'sqlite3'
 require 'bcrypt'
 require 'securerandom'
 
+require './models'
+require './firebase-auth'
+
+
 enable :sessions
-
-
-ActiveRecord::Base.establish_connection(
-  adapter: 'sqlite3',
-  database: './db/db.db'
-)
-
-class User < ActiveRecord::Base
-  validates :name, presence: true, length: { maximum: 20 }
-  has_one :room_user
-  has_secure_password
-end
-
-
-class Room < ActiveRecord::Base
-  validates :name,
-    presence: true
-
-  validates :number,
-    numericality: {
-      only_integer: true,
-      greater_than_or_equal_to: 2,
-      less_than_or_equal_to: 10
-    }
-
-  validates :seconds,
-    numericality: {
-      only_integer: true,
-      greater_than_or_equal_to: 0
-    }
-  
-  validates :show_prev_writer,
-    inclusion: { in: [true, false] }
-
-  has_many :room_users, dependent: :destroy
-  has_many :writes
-
-  
-  def find_room_user(user)
-    self.room_users.find{|ru| ru.user.id == user.id}
-  end
-
-  def occupied
-    self.room_users.count
-  end
-end
-
-class RoomUser < ActiveRecord::Base
-  belongs_to :room
-  belongs_to :user
-end
-
-class Write < ActiveRecord::Base
-end
-
 
 get '/' do
   login_user = User.find_by(name: session[:user])
@@ -213,7 +160,7 @@ get '/rooms/0/:hash/join' do |hash|
     return redirect "/rooms/0/#{hash}"
   end
   
-  occupied = room.occipied
+  occupied = room.occupied
   if occupied >= room.number then
     return "This room is full."
   end
@@ -223,11 +170,55 @@ get '/rooms/0/:hash/join' do |hash|
     is_host: false)
   
   if !room_user then
-    return redirect 'failed to join room.'
+    return 'failed to join room.'
   end
 
-  redirect '/home'
+  redirect "/rooms/0/#{hash}"
 end
+
+get '/rooms/0/:hash/leave' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return "Please login."
+  end
+  
+  room = Room.find_by(hash_text: hash)
+  if !room then
+    return "No such room."
+  end
+
+  room_user = room.find_room_user(login_user)
+  room_user&.destroy
+  
+  redirect "/home"
+end
+
+get '/rooms/0/:hash/info' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return 403, "Please login."
+  end
+  
+  room = Room.find_by(hash_text: hash)
+  if !room then
+    return 404, "No such room."
+  end
+  
+  my_ru = room.find_room_user(login_user)
+  if !my_ru then
+    return 403, "You are not in room."
+  end
+
+  rows = room.room_users.joins(:user).select('users.name, room_users.is_host')
+  roominfo = {
+    name: room.name,
+    users: rows.map{|r| r.name },
+    my_name: login_user.name,
+    host_name: rows.find{|r| r.is_host}.name
+  }
+  json roominfo
+end
+
 
 get '/rooms/b/:hash' do |hash|
   login_user = User.find_by(name: session[:user])
@@ -258,4 +249,3 @@ get '/rooms/b/:hash' do |hash|
 
   json Write.all
 end
-

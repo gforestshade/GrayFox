@@ -17,6 +17,7 @@ GEM
     concurrent-ruby (1.1.6)
     i18n (1.8.3)
       concurrent-ruby (~> 1.0)
+    jwt (2.2.1)
     minitest (5.14.1)
     multi_json (1.14.1)
     mustermann (1.1.1)
@@ -53,6 +54,7 @@ PLATFORMS
 DEPENDENCIES
   activerecord
   bcrypt
+  jwt
   sinatra
   sinatra-activerecord
   sinatra-contrib
