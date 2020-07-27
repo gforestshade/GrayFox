@@ -14,9 +14,11 @@ create table rooms(
     id integer primary key,
     hash_text text,
     name text,
-    number integer,
-    show_prev_writer boolean,
-    seconds integer
+    last_update_time integer,
+    show_writer boolean,
+    seconds integer,
+    orders text,
+    phase integer
 );
 
 
@@ -35,6 +37,7 @@ drop table if exists writes;
 
 create table writes(
     id integer primary key,
+    hash_text text,
     room_id integer,
     index_room integer,
     content text

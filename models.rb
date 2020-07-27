@@ -19,20 +19,13 @@ class Room < ActiveRecord::Base
   validates :name,
     presence: true
 
-  validates :number,
-    numericality: {
-      only_integer: true,
-      greater_than_or_equal_to: 2,
-      less_than_or_equal_to: 10
-    }
-
   validates :seconds,
     numericality: {
       only_integer: true,
       greater_than_or_equal_to: 0
     }
   
-  validates :show_prev_writer,
+  validates :show_writer,
     inclusion: { in: [true, false] }
 
   has_many :room_users, dependent: :destroy
@@ -54,4 +47,5 @@ class RoomUser < ActiveRecord::Base
 end
 
 class Write < ActiveRecord::Base
+  belongs_to :room
 end

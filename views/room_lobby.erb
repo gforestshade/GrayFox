@@ -16,9 +16,13 @@
 </ul>
 
 
+<% if @is_in then %>
 <p><a href="/rooms/0/<%= @room.hash_text %>/leave">Leave</a></p>
+<% else %>
+<p><a href="/rooms/0/<%= @room.hash_text %>/join">Join</a></p>
+<% end %>
 
-<% if @login_user.room_user.is_host then %>
+<% if @is_host then %>
 <p><a href="/rooms/b/<%= @room.hash_text %>">Go!</a></p>
 <% end %>
 </body>

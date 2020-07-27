@@ -44,11 +44,8 @@ def create_custom_token(uid)
              iat: now_seconds,
              exp: now_seconds+(60*60), # Maximum expiration time is one hour
              uid: uid,
-             claims: {
-               room: {
-                 hash: "testroomhogehoge",
-                 index: 0
-             }}}
+             claims: {}
+            }
   JWT.encode payload, credentials.private_key, "RS256"
 end
 

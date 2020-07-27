@@ -1,13 +1,4 @@
 
-/*
-<% @room.room_users.each do |ru| %>
-<li>
-  <% if ru.is_host then %>(Host)<% end %>
-  <% name_class = (ru.user_id == @login_user.id) ? 'name-me' : 'name-other' %>
-  <span class="<%= name_class %>"><%= ru.user.name %></span>
-</li>
-<% end %>
-*/
 
 function deleteAllChildren(node)
 {
@@ -34,6 +25,8 @@ function updateRoom()
             return res.json();
         })
         .then(json => {
+	    if (json.phase >= 0) location.replace('/writes/' + json.writes[json.current_write_index]);
+	    
             let fr = document.createDocumentFragment();
 
             for (const n of json.users)

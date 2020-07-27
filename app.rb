@@ -7,6 +7,8 @@ require 'securerandom'
 
 require './models'
 require './firebase-auth'
+require './permutation-order'
+
 
 
 enable :sessions
@@ -85,9 +87,8 @@ get '/rooms/create' do
   
   @room = Room.new(
     name: '',
-    number: 4,
     seconds: 15*60,
-    show_prev_writer: false)
+    show_writer: false)
 
   erb :rooms_create
 end
@@ -102,9 +103,9 @@ post '/rooms/create' do
   @room = Room.new(
     hash_text: SecureRandom.hex(8),
     name: params[:name],
-    number: params[:number],
     seconds: seconds,
-    show_prev_writer: params[:show_prev_writer].present?
+    show_writer: params[:show_writer].present?,
+    phase: -1
   )
 
   if !@room.save then
@@ -138,11 +139,9 @@ get '/rooms/0/:hash' do |hash|
   end
 
   my_ru = @room.find_room_user(@login_user)
-  if my_ru then
-    erb :room_lobby
-  else
-    "You are not in room."
-  end
+  @is_in = !!my_ru
+  @is_host = my_ru && my_ru.is_host
+  erb :room_lobby
 end
 
 get '/rooms/0/:hash/join' do |hash|
@@ -158,11 +157,6 @@ get '/rooms/0/:hash/join' do |hash|
 
   if room.find_room_user(login_user) then
     return redirect "/rooms/0/#{hash}"
-  end
-  
-  occupied = room.occupied
-  if occupied >= room.number then
-    return "This room is full."
   end
   
   room_user = room.room_users.create(
@@ -214,8 +208,13 @@ get '/rooms/0/:hash/info' do |hash|
     name: room.name,
     users: rows.map{|r| r.name },
     my_name: login_user.name,
-    host_name: rows.find{|r| r.is_host}.name
+    host_name: rows.find{|r| r.is_host}.name,
+    phase: room.phase,
   }
+  if roominfo[:phase] >= 0 then
+    roominfo[:current_write_index] = my_ru.index_room
+    roominfo[:writes] = room.writes.map{|w| w.hash_text }
+  end
   json roominfo
 end
 
@@ -223,12 +222,12 @@ end
 get '/rooms/b/:hash' do |hash|
   login_user = User.find_by(name: session[:user])
   if !login_user then
-    return "Please login."
+    return 404, "Please login."
   end
   
   room = Room.find_by(hash_text: hash)
   if !room then
-    return "No such room."
+    return 403, "No such room."
   end
 
   ru = room.find_room_user(login_user) 
@@ -236,16 +235,48 @@ get '/rooms/b/:hash' do |hash|
     return redirect "/rooms/0/#{hash}"
   end
 
-  room.room_users.each_with_index do |ru, i|
-    ru.index_room = i
-    if !ru.save then
-      return redirect "/rooms/0/#{hash}"
-    end
+  begin
+    ActiveRecord::Base.transaction do
+      
+      _, order2d = calc_room_order(room.occupied, 200)
+      room.phase = 0
+      room.orders = Marshal.dump(order2d)
+      room.last_update_time = Time.now.to_i
+      room.save!
+      
+      room.room_users.each_with_index do |ru, i|
+        ru.index_room = i
+        ru.save!
 
-    if !room.writes.create(index_room: i, content: '') then
-      return redirect "/rooms/0/#{hash}"
+        write = room.writes.create!(
+          hash_text: SecureRandom.hex(12),
+          index_room: i,
+          content: '')
+      end
+      
     end
+  rescue
+    return redirect "/rooms/0/#{hash}"
+  end
+  
+  redirect "/writes/#{room.writes[0].hash_text}"
+end
+
+get '/writes/:hash' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return 403, "please login."
   end
 
-  json Write.all
+  room = Write.find_by(hash_text: hash).room
+  ru = room.find_room_user(login_user) 
+  if !ru then
+    return 403, "You are not in room."
+  end
+
+  @expire = room.last_update_time + room.seconds * (room.phase + 1)
+  @custom_token = create_custom_token(hash)
+  @is_host = ru.is_host
+  erb :write
 end
+
