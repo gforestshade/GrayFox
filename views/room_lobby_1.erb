@@ -1,0 +1,26 @@
+<html>
+<head>
+<style>
+.name-me {
+  color: red;
+}
+</style>
+</head>
+
+<body>
+<h1 id="h1-title" data-current-phase="<%= @room.phase %>" data-hash="<%= @room.hash_text %>"><%= @room.name %></h1>
+<p>残り時間:</p><p id="remaining-time" data-expire="<%= @expire %>"></p>
+<h3>users:</h3>
+<ul id="list-users">
+</ul>
+
+
+<% if @is_host then %>
+<p><a href="/rooms/n/<%= @room.hash_text %>">Next</a></p>
+<% end %>
+
+
+<script src="/agh.sprintf.min.js"></script>
+<script src="/show-remaining-time.js"></script>
+<script src="/room_lobby.js"></script>
+</body>

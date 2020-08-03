@@ -18,7 +18,8 @@ create table rooms(
     show_writer boolean,
     seconds integer,
     orders text,
-    phase integer
+    phase integer,
+    count integer
 );
 
 

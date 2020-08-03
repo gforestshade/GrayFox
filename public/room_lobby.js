@@ -12,10 +12,9 @@ function updateRoom()
 {
     const objH1 = document.getElementById('h1-title');    
     const objListUsers = document.getElementById('list-users');
-    console.log(objH1)
-    console.log(objListUsers)
     
     const hash = objH1.dataset.hash;
+    const currentPhase = parseInt(objH1.dataset.currentPhase);
     
     const req = '/rooms/0/'+ hash + '/info';
     const p = {credentials: 'same-origin'};
@@ -25,7 +24,10 @@ function updateRoom()
             return res.json();
         })
         .then(json => {
-	    if (json.phase >= 0) location.replace('/writes/' + json.writes[json.current_write_index]);
+            console.log(json.phase);
+            console.log(currentPhase+1);
+	        if (json.phase >= currentPhase + 1)
+                location.replace('/writes/' + json.writes[json.phase]);
 	    
             let fr = document.createDocumentFragment();
 
@@ -50,4 +52,4 @@ function updateRoom()
 }
 
 let updateTickId = setInterval(updateRoom, 5000);
-setTimeout(updateRoom, 10);
+updateRoom();

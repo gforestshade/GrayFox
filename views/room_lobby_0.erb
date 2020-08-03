@@ -5,11 +5,10 @@
   color: red;
 }
 </style>
-<script type="text/javascript" src="/room_lobby.js"></script>
 </head>
 
 <body>
-<h1 id="h1-title" data-hash="<%= @room.hash_text %>"><%= @room.name %></h1>
+<h1 id="h1-title" data-current-phase="-1" data-hash="<%= @room.hash_text %>"><%= @room.name %></h1>
 
 <h3>users:</h3>
 <ul id="list-users">
@@ -25,4 +24,6 @@
 <% if @is_host then %>
 <p><a href="/rooms/b/<%= @room.hash_text %>">Go!</a></p>
 <% end %>
+
+<script type="text/javascript" src="/room_lobby.js"></script>
 </body>

@@ -4,14 +4,21 @@ require 'sinatra/reloader' if development?
 require 'sinatra/json'
 require 'bcrypt'
 require 'securerandom'
+require 'logger'
 
 require './models'
 require './firebase-auth'
 require './permutation-order'
 
-
-
 enable :sessions
+
+
+def getWriteHash(room, index_room)
+  orders = Marshal.load(room.orders)
+  write_index = orders[room.phase][index_room]
+  write_hash = room.writes[write_index].hash_text
+end
+
 
 get '/' do
   login_user = User.find_by(name: session[:user])
@@ -127,9 +134,13 @@ get '/rooms/all' do
   json Room.all
 end
 
+get '/ru/all' do
+  json RoomUser.all
+end
+
 get '/rooms/0/:hash' do |hash|
-  @login_user = User.find_by(name: session[:user])
-  if !@login_user then
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
     return "Please login."
   end
   
@@ -138,10 +149,10 @@ get '/rooms/0/:hash' do |hash|
     return "No such room."
   end
 
-  my_ru = @room.find_room_user(@login_user)
+  my_ru = @room.find_room_user(login_user)
   @is_in = !!my_ru
   @is_host = my_ru && my_ru.is_host
-  erb :room_lobby
+  erb :room_lobby_0
 end
 
 get '/rooms/0/:hash/join' do |hash|
@@ -211,9 +222,21 @@ get '/rooms/0/:hash/info' do |hash|
     host_name: rows.find{|r| r.is_host}.name,
     phase: room.phase,
   }
+  
+  logger = Logger.new(STDOUT)
+
   if roominfo[:phase] >= 0 then
-    roominfo[:current_write_index] = my_ru.index_room
-    roominfo[:writes] = room.writes.map{|w| w.hash_text }
+    room_writes = room.writes
+    count = room_writes.count
+    j = my_ru.index_room
+    orders = Marshal.load(room.orders)
+
+    user_writes = (0..count-1).map do |i|
+      index = orders[i][j]
+      room_writes[index].hash_text
+    end
+
+    roominfo[:writes] = user_writes
   end
   json roominfo
 end
@@ -274,9 +297,63 @@ get '/writes/:hash' do |hash|
     return 403, "You are not in room."
   end
 
-  @expire = room.last_update_time + room.seconds * (room.phase + 1)
+  @expire = room.last_update_time + room.seconds
   @custom_token = create_custom_token(hash)
   @is_host = ru.is_host
   erb :write
+end
+
+
+get '/rooms/1/:hash' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return 403, "Please login."
+  end
+  
+  @room = Room.find_by(hash_text: hash)
+  if !@room then
+    return 404, "No such room."
+  end
+  
+  ru = @room.find_room_user(login_user)
+  if !ru then
+    return 403, "You are not in room."
+  end
+  
+  @expire = @room.last_update_time + @room.seconds
+  @is_host = ru.is_host
+
+  erb :room_lobby_1
+end
+
+get '/rooms/n/:hash' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return 403, "Please login."
+  end
+  
+  room = Room.find_by(hash_text: hash)
+  if !room then
+    return 404, "No such room."
+  end
+  
+  my_ru = room.find_room_user(login_user)
+  if !my_ru then
+    return 403, "You are not in room."
+  end
+
+  room_users_count = room.room_users.count
+  room_phase = room.phase
+  if room_phase >= room_users_count
+    return "Already End."
+  end
+
+  room.phase += 1
+  room.last_update_time = Time.now.to_i
+  if !room.save then
+    return redirect "/rooms/1/#{hash}"
+  end
+
+  redirect "/writes/#{getWriteHash(room, my_ru.index_room)}"
 end
 
