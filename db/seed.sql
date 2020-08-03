@@ -41,5 +41,6 @@ create table writes(
     hash_text text,
     room_id integer,
     index_room integer,
+    title text,
     content text
 );

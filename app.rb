@@ -223,20 +223,22 @@ get '/rooms/i/:hash' do |hash|
     phase: room.phase,
   }
   
-  logger = Logger.new(STDOUT)
+  if room.phase >= 0 then
+    count = room.count
+    roominfo[:count] = count
+    
+    if count && room.phase < count then
+      room_writes = room.writes
+      j = my_ru.index_room
+      orders = Marshal.load(room.orders)
 
-  if roominfo[:phase] >= 0 then
-    room_writes = room.writes
-    count = room_writes.count
-    j = my_ru.index_room
-    orders = Marshal.load(room.orders)
+      user_writes = (0..count-1).map do |i|
+        index = orders[i][j]
+        room_writes[index].hash_text
+      end
 
-    user_writes = (0..count-1).map do |i|
-      index = orders[i][j]
-      room_writes[index].hash_text
+      roominfo[:writes] = user_writes
     end
-
-    roominfo[:writes] = user_writes
   end
   json roominfo
 end
@@ -275,6 +277,7 @@ get '/rooms/b/:hash' do |hash|
         write = room.writes.create!(
           hash_text: SecureRandom.hex(12),
           index_room: i,
+          title: "#{room.name}#{i+1}",
           content: '')
       end
       
@@ -360,18 +363,29 @@ get '/rooms/n/:hash' do |hash|
     return 403, "You are not in room."
   end
 
-  room_users_count = room.room_users.count
-  room_phase = room.phase
-  if room_phase >= room_users_count
-    return "Already End."
+  if room.phase >= room.count
+    return redirect "/rooms/r/#{hash}"
   end
 
-  room.phase = room_phase + 1
+  room.phase += 1
   room.last_update_time = Time.now.to_i
   if !room.save then
-    return redirect "/rooms/1/#{hash}"
+    return redirect "/home"
   end
 
-  redirect "/writes/#{getWriteHash(room, my_ru.index_room)}"
+  if room.phase >= room.count then
+    redirect "/rooms/r/#{hash}"
+  else
+    redirect "/writes/#{getWriteHash(room, my_ru.index_room)}"
+  end
+end
+
+get '/rooms/r/:hash' do |hash|
+  @room = Room.find_by(hash_text: hash)
+  if !@room then
+    return 404, "No such room."
+  end
+
+  erb :result
 end
 

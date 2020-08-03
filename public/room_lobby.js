@@ -10,13 +10,13 @@ function deleteAllChildren(node)
 
 function updateRoom()
 {
-    const objH1 = document.getElementById('h1-title');    
+    const objRoomTitle = document.getElementById('room-title');    
     const objListUsers = document.getElementById('list-users');
     
-    const hash = objH1.dataset.hash;
-    const nextPhase = parseInt(objH1.dataset.nextPhase);
+    const hash = objRoomTitle.dataset.hash;
+    const nextPhase = parseInt(objRoomTitle.dataset.nextPhase);
     
-    const req = '/rooms/0/'+ hash + '/info';
+    const req = '/rooms/i/'+ hash;
     const p = {credentials: 'same-origin'};
     fetch(req, p)
         .then(res => {

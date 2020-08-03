@@ -1,0 +1,9 @@
+<h1>Result</h1>
+<h2><%= @room.name %></h2>
+
+<h3>writes:</h3>
+<ul>
+   <% @room.writes.each do |w| %>
+      <li><a href="/writes/view/<%= w.hash_text %>"><%= w.title %></a></li>
+   <% end %>
+</ul>
