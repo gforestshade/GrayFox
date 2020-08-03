@@ -15,7 +15,8 @@
   <h2>執筆中</h2>
   <p id="remaining-time" data-expire="<%= @expire %>"></p>
   <textarea id="write"></textarea>
-  
+  <button data-href="<%= "/rooms/#{@room.phase+1}/#{@room.hash_text}" %>" onclick="goto(this.dataset.href)">OK</button>
+
   <div id="data" data-custom-token="<%= @custom_token %>"></div>
   <%= render :erb, :firebase_js %>
   <script src="/agh.sprintf.min.js"></script>

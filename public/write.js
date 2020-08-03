@@ -33,6 +33,10 @@ firebase.auth().onAuthStateChanged(user => {
     
 });
 
+function goto(url)
+{
+    location.href = url;
+}
 
 const dataObj = document.getElementById('data');
 login(dataObj.dataset.customToken);

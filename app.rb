@@ -198,7 +198,7 @@ get '/rooms/0/:hash/leave' do |hash|
   redirect "/home"
 end
 
-get '/rooms/0/:hash/info' do |hash|
+get '/rooms/i/:hash' do |hash|
   login_user = User.find_by(name: session[:user])
   if !login_user then
     return 403, "Please login."
@@ -263,6 +263,7 @@ get '/rooms/b/:hash' do |hash|
       
       _, order2d = calc_room_order(room.occupied, 200)
       room.phase = 0
+      room.count = room.occupied
       room.orders = Marshal.dump(order2d)
       room.last_update_time = Time.now.to_i
       room.save!
@@ -292,11 +293,22 @@ get '/writes/:hash' do |hash|
   end
 
   room = Write.find_by(hash_text: hash).room
-  ru = room.find_room_user(login_user) 
+  if room.phase < 0 || room.phase >= room.count then
+    return 403, "This room is not open."
+  end
+  
+  ru = room.find_room_user(login_user)
   if !ru then
     return 403, "You are not in room."
   end
 
+  orders = Marshal.load(room.orders)
+  write_index = orders[room.phase][ru.index_room]
+  if room.writes[write_index].hash_text != hash then
+    return 403, "It's not your order to write this."
+  end
+
+  @room = room
   @expire = room.last_update_time + room.seconds
   @custom_token = create_custom_token(hash)
   @is_host = ru.is_host
@@ -304,7 +316,7 @@ get '/writes/:hash' do |hash|
 end
 
 
-get '/rooms/1/:hash' do |hash|
+get %r{/rooms/([1-9][0-9]*)/(.+)} do |phase, hash|
   login_user = User.find_by(name: session[:user])
   if !login_user then
     return 403, "Please login."
@@ -319,7 +331,13 @@ get '/rooms/1/:hash' do |hash|
   if !ru then
     return 403, "You are not in room."
   end
+
+  phase = phase.to_i
+  if phase > @room.phase + 1 then
+    return 403, "Invalid phase parameter."
+  end
   
+  @phase = phase
   @expire = @room.last_update_time + @room.seconds
   @is_host = ru.is_host
 
@@ -348,7 +366,7 @@ get '/rooms/n/:hash' do |hash|
     return "Already End."
   end
 
-  room.phase += 1
+  room.phase = room_phase + 1
   room.last_update_time = Time.now.to_i
   if !room.save then
     return redirect "/rooms/1/#{hash}"

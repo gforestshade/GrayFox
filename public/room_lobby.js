@@ -14,7 +14,7 @@ function updateRoom()
     const objListUsers = document.getElementById('list-users');
     
     const hash = objH1.dataset.hash;
-    const currentPhase = parseInt(objH1.dataset.currentPhase);
+    const nextPhase = parseInt(objH1.dataset.nextPhase);
     
     const req = '/rooms/0/'+ hash + '/info';
     const p = {credentials: 'same-origin'};
@@ -25,8 +25,8 @@ function updateRoom()
         })
         .then(json => {
             console.log(json.phase);
-            console.log(currentPhase+1);
-	        if (json.phase >= currentPhase + 1)
+            console.log(nextPhase);
+	        if (json.phase >= nextPhase)
                 location.replace('/writes/' + json.writes[json.phase]);
 	    
             let fr = document.createDocumentFragment();

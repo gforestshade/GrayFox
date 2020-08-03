@@ -8,7 +8,7 @@
 </head>
 
 <body>
-<h1 id="h1-title" data-current-phase="<%= @room.phase %>" data-hash="<%= @room.hash_text %>"><%= @room.name %></h1>
+<h1 id="h1-title" data-next-phase="<%= @phase %>" data-hash="<%= @room.hash_text %>"><%= @room.name %></h1>
 <p>残り時間:</p><p id="remaining-time" data-expire="<%= @expire %>"></p>
 <h3>users:</h3>
 <ul id="list-users">
