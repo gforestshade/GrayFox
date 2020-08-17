@@ -1,0 +1,26 @@
+<body>
+  <style>
+    #write-view {
+    width: 100%;
+    padding: 0.5em;
+    box-sizing: border-box;
+    border: 1px solid #bfced3;
+    border-radius: 4px;
+    line-height: 1.3em;
+    font-size: 12pt;
+    }
+  </style>
+
+  <h2><%= @write.title %></h2>
+  <div id="write-view">
+    <% @write.content.each_line do |line| %>
+      <%= line %><br>
+    <% end %>
+  </div>
+
+  <% if @room_hash then %>
+    <p><a href="/rooms/r/<%= @room_hash %>">同じ部屋の小説</a></p>
+  <% end %>
+
+  <p><a href="/home">ロビーへ</a></p>
+</body>

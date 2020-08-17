@@ -7,6 +7,7 @@ require 'securerandom'
 require 'logger'
 
 require './models'
+require './rtdb-read'
 require './firebase-auth'
 require './permutation-order'
 
@@ -41,7 +42,19 @@ end
 get '/home' do
   @login_user = User.find_by(name: session[:user])
   if @login_user then
-    @rooms = Room.all
+    @room_groups =
+      Room.all
+        .where("phase < count")
+        .includes(:room_users)
+        .group_by do |room|
+          if room.room_users.find_by(user_id: @login_user.id) then
+            :participating
+          elsif room.phase < 0 then
+            :recruiting
+          else
+            :writing
+          end
+      end
     erb :home
   else
     redirect "/"
@@ -112,7 +125,8 @@ post '/rooms/create' do
     name: params[:name],
     seconds: seconds,
     show_writer: params[:show_writer].present?,
-    phase: -1
+    phase: -1,
+    count: 0
   )
 
   if !@room.save then
@@ -127,9 +141,11 @@ post '/rooms/create' do
     return erb :rooms_create
   end
 
-  redirect '/home'
+  redirect "rooms/0/#{@room.hash_text}"
 end
 
+
+######################## Debug #######################
 get '/rooms/all' do
   json Room.all
 end
@@ -137,6 +153,12 @@ end
 get '/ru/all' do
   json RoomUser.all
 end
+
+get '/writes/all' do
+  json Write.all
+end
+######################################################
+
 
 get '/rooms/0/:hash' do |hash|
   login_user = User.find_by(name: session[:user])
@@ -221,25 +243,22 @@ get '/rooms/i/:hash' do |hash|
     my_name: login_user.name,
     host_name: rows.find{|r| r.is_host}.name,
     phase: room.phase,
+    count: room.count,
   }
   
-  if room.phase >= 0 then
-    count = room.count
-    roominfo[:count] = count
+  if room.phase >= 0 && room.phase < room.count then
+    room_writes = room.writes
+    j = my_ru.index_room
+    orders = Marshal.load(room.orders)
     
-    if count && room.phase < count then
-      room_writes = room.writes
-      j = my_ru.index_room
-      orders = Marshal.load(room.orders)
-
-      user_writes = (0..count-1).map do |i|
-        index = orders[i][j]
-        room_writes[index].hash_text
-      end
-
-      roominfo[:writes] = user_writes
+    user_writes = (0..room.count-1).map do |i|
+      index = orders[i][j]
+      room_writes[index].hash_text
     end
+    
+    roominfo[:writes] = user_writes
   end
+  
   json roominfo
 end
 
@@ -257,9 +276,14 @@ get '/rooms/b/:hash' do |hash|
 
   ru = room.find_room_user(login_user) 
   if !ru || !ru.is_host then
-    return redirect "/rooms/0/#{hash}"
+    return 403, "Host only."
   end
 
+  if room.phase >= 0 then
+    return 403, "Already begun."
+  end
+
+  
   begin
     ActiveRecord::Base.transaction do
       
@@ -286,38 +310,56 @@ get '/rooms/b/:hash' do |hash|
     return redirect "/rooms/0/#{hash}"
   end
   
-  redirect "/writes/#{room.writes[0].hash_text}"
+  redirect "/writes/w/#{room.writes[0].hash_text}"
 end
 
-get '/writes/:hash' do |hash|
+get '/rooms/d/:hash' do |hash|
   login_user = User.find_by(name: session[:user])
   if !login_user then
-    return 403, "please login."
-  end
-
-  room = Write.find_by(hash_text: hash).room
-  if room.phase < 0 || room.phase >= room.count then
-    return 403, "This room is not open."
+    return 404, "Please login."
   end
   
-  ru = room.find_room_user(login_user)
-  if !ru then
-    return 403, "You are not in room."
+  room = Room.find_by(hash_text: hash)
+  if !room then
+    return 403, "No such room."
   end
 
-  orders = Marshal.load(room.orders)
-  write_index = orders[room.phase][ru.index_room]
-  if room.writes[write_index].hash_text != hash then
-    return 403, "It's not your order to write this."
+  ru = room.find_room_user(login_user) 
+  if !ru || !ru.is_host then
+    return 403, "Host only."
+  end
+
+  if room.phase < 0 then
+    room.destroy
+    return redirect '/home'
   end
 
   @room = room
-  @expire = room.last_update_time + room.seconds
-  @custom_token = create_custom_token(hash)
-  @is_host = ru.is_host
-  erb :write
+  erb :rooms_destroy
 end
 
+post '/rooms/d/:hash' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return 404, "Please login."
+  end
+  
+  room = Room.find_by(hash_text: hash)
+  if !room then
+    return 403, "No such room."
+  end
+
+  ru = room.find_room_user(login_user) 
+  if !ru || !ru.is_host then
+    return 403, "Host only."
+  end
+
+  if params[:confirm_name] == room.name then
+    room.destroy
+  end
+
+  redirect '/home'
+end
 
 get %r{/rooms/([1-9][0-9]*)/(.+)} do |phase, hash|
   login_user = User.find_by(name: session[:user])
@@ -369,16 +411,31 @@ get '/rooms/n/:hash' do |hash|
 
   room.phase += 1
   room.last_update_time = Time.now.to_i
-  if !room.save then
-    return redirect "/home"
-  end
 
   if room.phase >= room.count then
-    redirect "/rooms/r/#{hash}"
+    begin
+      ActiveRecord::Base.transaction do
+        room.writes.each do |w|
+          w.content = rtdb_read(w.hash_text)
+          w.save!
+        end
+        room.save!
+      end
+      return redirect "/rooms/r/#{hash}"
+    rescue => e
+      p e
+      #raise e
+      return redirect "/home"
+    end
   else
-    redirect "/writes/#{getWriteHash(room, my_ru.index_room)}"
+    if !room.save then
+      redirect "/home"
+    else
+      redirect "/writes/w/#{getWriteHash(room, my_ru.index_room)}"
+    end
   end
 end
+
 
 get '/rooms/r/:hash' do |hash|
   @room = Room.find_by(hash_text: hash)
@@ -387,5 +444,81 @@ get '/rooms/r/:hash' do |hash|
   end
 
   erb :result
+end
+
+
+
+get '/writes/w/:hash' do |hash|
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return 403, "please login."
+  end
+
+  write = Write.find_by(hash_text: hash)
+  if !write then
+    return 404, "No such write."
+  end
+
+  room = write.room
+  if room.phase < 0 || room.phase >= room.count then
+    return 403, "This room is not open."
+  end
+  
+  ru = room.find_room_user(login_user)
+  if !ru then
+    return 403, "You are not in room."
+  end
+
+  orders = Marshal.load(room.orders)
+  write_index = orders[room.phase][ru.index_room]
+  if room.writes[write_index].hash_text != hash then
+    return 403, "It's not your order to write this."
+  end
+
+  @room = room
+  @expire = room.last_update_time + room.seconds
+  @custom_token = create_custom_token(hash)
+  @is_host = ru.is_host
+  erb :write
+end
+
+get '/writes/v/:hash' do |hash|
+
+  login_user = User.find_by(name: session[:user])
+  if !login_user then
+    return 403, "please login."
+  end
+
+  write = Write.find_by(hash_text: hash)
+  if !write then
+    return 404, "No such write."
+  end
+
+  room = write.room
+  if room.phase < 0 || room.phase >= room.count then
+    return 403, "This room is not active."
+  end
+  
+  ru = room.find_room_user(login_user)
+  if !(ru && ru.is_host) then
+    return 403, "Room host only."
+  end
+
+  @room = room
+  @expire = room.last_update_time + room.seconds
+  @custom_token = create_custom_token(hash)
+  
+  erb :writes_view
+end
+
+get '/writes/r/:hash' do |hash|
+  @write = Write.find_by(hash_text: hash)
+  if !@write then
+    return 404, "No such write."
+  end
+
+  @room_hash = params[:room]
+  
+  erb :writes_read
 end
 

@@ -1,0 +1,19 @@
+
+<style>
+.confirm-name:valid {
+  border: 2px green solid;
+}
+.confirm-name:invalid {
+  border: 2px red solid;
+}
+</style>
+
+<p>この部屋とすべての原稿を削除します。</p>
+<p>確認のため、部屋の名前をもう一度入力して削除ボタンを押してください。</p>
+
+<form action="/rooms/d/<%= @room.hash_text %>" method="post">
+  <input type="text" class="confirm-name" name="confirm_name" pattern="<%= @room.name %>" required title="部屋の名前を入力してください"><br>
+  <input type="submit" value="削除">
+</form>
+
+<p><a href="/home">ロビーに戻る</a></p>

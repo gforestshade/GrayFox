@@ -1,13 +1,40 @@
-<p>You are <%= @login_user.name %>.</p>
+<p>Hello, <%= @login_user.name %>.</p>
 <p><a href=/rooms/create>Create Room</a></p>
 
 <div style="margin: 5em"></div>
 
-<% @rooms.each do |room| %>
-<div class="room-card">
-  <p><a href="/rooms/0/<%= room.hash_text %>">
-    <%= room.name %>
-  </a></p>
-  <p><%= room.occupied %> writers</p>
-</div>
+<% if @room_groups[:participating] %>
+  <h3>参加中</h3>
+  <% @room_groups[:participating].each do |room| %>
+  <div class="room-card">
+    <p><a href="/rooms/0/<%= room.hash_text %>">
+      <%= room.name %>
+    </a></p>
+    <p><%= room.occupied %> writers</p>
+  </div>
+  <% end %>
+<% end %>
+
+<% if @room_groups[:recruiting] %>
+  <h3>募集中</h3>
+  <% @room_groups[:recruiting].each do |room| %>
+  <div class="room-card">
+    <p><a href="/rooms/0/<%= room.hash_text %>">
+      <%= room.name %>
+    </a></p>
+    <p><%= room.occupied %> writers</p>
+  </div>
+  <% end %>
+<% end %>
+
+<% if @room_groups[:writing] %>
+  <h3>執筆中</h3>
+  <% @room_groups[:writing].each do |room| %>
+  <div class="room-card">
+    <p><a href="/rooms/0/<%= room.hash_text %>">
+      <%= room.name %>
+    </a></p>
+    <p><%= room.occupied %> writers</p>
+  </div>
+  <% end %>
 <% end %>

@@ -4,6 +4,8 @@
 <h3>writes:</h3>
 <ul>
    <% @room.writes.each do |w| %>
-      <li><a href="/writes/view/<%= w.hash_text %>"><%= w.title %></a></li>
+      <li><a href="/writes/r/<%= w.hash_text %>?room=<%= @room.hash_text %>"><%= w.title %></a></li>
    <% end %>
 </ul>
+
+<p><a href="/home">ロビーへ</a></p>

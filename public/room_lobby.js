@@ -26,8 +26,11 @@ function updateRoom()
         .then(json => {
             console.log(json.phase);
             console.log(nextPhase);
-	        if (json.phase >= nextPhase)
-                location.replace('/writes/' + json.writes[json.phase]);
+
+	    if (json.phase >= 0 && json.phase >= json.count)
+		location.replace('/rooms/r/' + hash);
+	    else if (json.phase >= nextPhase)
+                location.replace('/writes/w/' + json.writes[json.phase]);
 	    
             let fr = document.createDocumentFragment();
 
